@@ -1,0 +1,15 @@
+{
+  "name": "TDK Sözlük",
+  "short_name": "Sözlük",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f5f0",
+  "theme_color": "#f8f5f0",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "16x16",
+      "type": "image/x-icon"
+    }
+  ]
+} 
