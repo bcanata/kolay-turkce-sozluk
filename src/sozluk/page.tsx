@@ -17,7 +17,7 @@ export default function DictionaryBook() {
       .then(res => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
-          const sorted = data.map((d: any) => d.madde).sort(turkishSort);
+          const sorted = data.map((d: { madde: string }) => d.madde).sort(turkishSort);
           setWords(sorted);
         }
       })

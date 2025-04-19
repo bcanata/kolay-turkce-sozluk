@@ -18,8 +18,11 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.ico",
   },
-  themeColor: "#f8f5f0",
   manifest: "/manifest.json",
+};
+
+export const viewport = {
+  themeColor: "#f8f5f0",
 };
 
 export default function RootLayout({

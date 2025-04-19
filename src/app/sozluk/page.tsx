@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef, createContext } from "react";
+import Link from "next/link";
 
 const WORDS_PER_PAGE = 50;
 
@@ -43,7 +44,26 @@ function cleanMeaningText(text: string): string {
   return text;
 }
 
-function DictionaryEntry({ entry }: { entry: any }) {
+// TypeScript interfaces for dictionary data
+interface Ornek {
+  ornek: string;
+  yazar?: { tam_adi: string }[];
+}
+
+interface Anlam {
+  anlam: string;
+  ozelliklerListe?: { tam_adi: string }[];
+  orneklerListe?: Ornek[];
+}
+
+interface DictionaryEntryData {
+  madde: string;
+  telaffuz?: string;
+  lisan?: string;
+  anlamlarListe: Anlam[];
+}
+
+function DictionaryEntry({ entry }: { entry: DictionaryEntryData | null }) {
   const { /* setSearchWord, setHighlightedWord, words */ } = React.useContext(DictionaryBookContext) || {};
   if (!entry) return null;
   let madde = entry.madde;
@@ -52,15 +72,15 @@ function DictionaryEntry({ entry }: { entry: any }) {
   const origin = entry.lisan;
   // Filter out any meaning whose text is exactly 'taşaklı' or '► taşaklı' (case-insensitive, Turkish locale)
   const meanings = (entry.anlamlarListe || [])
-    .filter((anlam: any) => {
+    .filter((anlam: Anlam) => {
       const t = (typeof anlam.anlam === 'string' ? anlam.anlam : '').trim().toLocaleLowerCase('tr');
       return t !== 'taşaklı' && t !== '► taşaklı';
     })
-    .map((anlam: any) => ({
+    .map((anlam: Anlam) => ({
       ...anlam,
       anlam: typeof anlam.anlam === 'string' ? cleanMeaningText(replaceTasak(anlam.anlam)) : anlam.anlam,
       orneklerListe: Array.isArray(anlam.orneklerListe)
-        ? anlam.orneklerListe.map((o: any) => ({
+        ? anlam.orneklerListe.map((o: Ornek) => ({
             ...o,
             ornek: typeof o.ornek === 'string' ? replaceTasak(o.ornek) : o.ornek,
           }))
@@ -74,7 +94,7 @@ function DictionaryEntry({ entry }: { entry: any }) {
         <Origin origin={origin} />
       </div>
       <ol className="pl-4 list-decimal text-sm text-gray-800">
-        {meanings.map((anlam: any, i: number) => {
+        {meanings.map((anlam: Anlam, i: number) => {
           // Handle '343' Bakınız case
           if (typeof anlam.anlam === "string" && anlam.anlam.trim().startsWith("343")) {
             // Extract referenced word(s) after '343'
@@ -96,9 +116,9 @@ function DictionaryEntry({ entry }: { entry: any }) {
               {/* Examples */}
               {anlam.orneklerListe && (
                 <ul className="mt-1 space-y-1">
-                  {anlam.orneklerListe.map((o: any, j: number) => (
+                  {anlam.orneklerListe.map((o: Ornek, j: number) => (
                     <li key={j} className="pl-4 border-l-2 border-gray-300 italic text-gray-600 text-xs">
-                      “{o.ornek}”
+                      &quot;{o.ornek}&quot;
                       {o.yazar && Array.isArray(o.yazar) && o.yazar[0]?.tam_adi && (
                         <span className="ml-2 text-gray-400">— {o.yazar[0].tam_adi}</span>
                       )}
@@ -115,26 +135,24 @@ function DictionaryEntry({ entry }: { entry: any }) {
 }
 
 // Context to allow DictionaryEntry to access setSearchWord, setHighlightedWord, words
-const DictionaryBookContext = createContext<any>(null);
+const DictionaryBookContext = createContext<unknown>(null);
 
 export default function DictionaryBook() {
   const [words, setWords] = useState<string[]>([]);
   const [page, setPage] = useState(0); // page = 0 is the first spread
   const [loading, setLoading] = useState(true);
-  const [defs, setDefs] = useState<{ [word: string]: any | null }>({});
+  const [defs, setDefs] = useState<{ [word: string]: DictionaryEntryData | null }>({});
   const fetchingRef = useRef<{ [word: string]: boolean }>({});
-  const [pageInput, setPageInput] = useState(1);
   const [searchWord, setSearchWord] = useState("");
-  const [searchError, setSearchError] = useState("");
   const [highlightedWord, setHighlightedWord] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("https://sozluk.gov.tr/autocomplete.json")
       .then(res => res.json())
-      .then((data) => {
+      .then((data: { madde: string }[]) => {
         if (Array.isArray(data)) {
           const sorted = data
-            .map((d: any) => d.madde)
+            .map((d) => d.madde)
             .filter((w: string) => w.toLocaleLowerCase("tr") !== "taşaklı")
             .sort(turkishSort);
           setWords(sorted);
@@ -142,10 +160,6 @@ export default function DictionaryBook() {
       })
       .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => {
-    setPageInput(page + 1);
-  }, [page]);
 
   // Remove highlight after a short time
   useEffect(() => {
@@ -164,15 +178,14 @@ export default function DictionaryBook() {
       fetchingRef.current[word] = true;
       fetch(`https://sozluk.gov.tr/gts?ara=${encodeURIComponent(word)}`)
         .then(res => res.json())
-        .then((data) => {
+        .then((data: DictionaryEntryData[]) => {
           setDefs(prev => ({ ...prev, [word]: Array.isArray(data) && data.length > 0 ? data[0] : null }));
         })
         .finally(() => {
           fetchingRef.current[word] = false;
         });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, words]);
+  }, [page, words, defs]);
 
   const totalPages = Math.ceil(words.length / (WORDS_PER_PAGE * 2));
   const leftStart = page * WORDS_PER_PAGE * 2;
@@ -190,6 +203,13 @@ export default function DictionaryBook() {
   return (
     <DictionaryBookContext.Provider value={{ /* setSearchWord, setHighlightedWord, words */ }}>
       <div className="min-h-screen bg-[#f8f5f0] flex flex-col items-center py-8 px-2">
+        <div className="w-full max-w-6xl flex items-center mb-4">
+          <Link href="/" className="inline-flex items-center p-2 rounded hover:bg-gray-100 transition group" aria-label="Ana sayfa">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6 text-gray-500 group-hover:text-blue-600">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7A1 1 0 003 11h1v5a2 2 0 002 2h2a1 1 0 001-1v-3h2v3a1 1 0 001 1h2a2 2 0 002-2v-5h1a1 1 0 00.707-1.707l-7-7z" />
+            </svg>
+          </Link>
+        </div>
         {loading ? (
           <div className="text-lg text-gray-500 py-20">Yükleniyor...</div>
         ) : (
@@ -250,21 +270,17 @@ export default function DictionaryBook() {
                 onSubmit={e => {
                   e.preventDefault();
                   if (!searchWord.trim()) return;
-                  setSearchError("");
                   // Find word index (case-insensitive, Turkish locale)
                   const searchVal = searchWord.trim().toLocaleLowerCase("tr");
                   if (searchVal === "taşaklı") {
-                    setSearchError("Kelime bulunamadı");
                     return;
                   }
                   const idx = words.findIndex(w => w.toLocaleLowerCase("tr") === searchVal);
                   if (idx === -1) {
-                    setSearchError("Kelime bulunamadı");
                     return;
                   }
                   const newPage = Math.floor(idx / (WORDS_PER_PAGE * 2));
                   setPage(newPage);
-                  setPageInput(newPage + 1);
                   setHighlightedWord(words[idx]);
                   setTimeout(() => {
                     const el = document.getElementById("sozluk-word-" + words[idx]);

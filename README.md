@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kolay Türkçe Sözlük
 
-## Getting Started
+## Açıklama
+Kolay Türkçe Sözlük, modern ve kullanıcı dostu bir Türkçe sözlük uygulamasıdır. TDK API'si üzerinden kelime anlamları, kökenleri, örnekler ve atasözleri sunar. Klasik sözlük görünümü ve hızlı arama özellikleriyle dijital çağda Türkçeyi keşfetmek için idealdir.
 
-First, run the development server:
+🔗 **Canlı Proje:** [https://kolay-turkce-sozluk.vercel.app/](https://kolay-turkce-sozluk.vercel.app/)
 
+## Özellikler
+- Hızlı kelime arama ve otomatik tamamlama
+- Klasik iki sayfalı sözlük görünümü
+- TDK'dan canlı anlam, köken, örnek ve atasözü verisi
+- Türkçe diline uygun büyük harf kuralları
+- Mobil ve masaüstü için duyarlı tasarım
+- GitHub Actions ile otomatik Preview ve Production dağıtımı
+
+## Yerel Geliştirme
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
+Projeyi [localhost:3000](http://localhost:3000) adresinde görüntüleyebilirsiniz.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Dağıtım
+- Vercel ile otomatik dağıtım için `.github/workflows/preview.yaml` ve `.github/workflows/production.yaml` dosyaları kullanılır.
+- Gerekli GitHub Secrets:
+  - `VERCEL_TOKEN`
+  - `VERCEL_ORG_ID`
+  - `VERCEL_PROJECT_ID`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Secrets değerlerini almak için:
+1. `vercel login` ile giriş yapın.
+2. `vercel link` ile projeyi bağlayın.
+3. `.vercel/project.json` dosyasından orgId ve projectId alın.
+4. GitHub repo ayarlarından Secrets olarak ekleyin.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+# Kolay Türkçe Sözlük
 
-To learn more about Next.js, take a look at the following resources:
+## Description
+Kolay Türkçe Sözlük is a modern, user-friendly Turkish dictionary app. It provides word meanings, origins, examples, and proverbs using the official TDK API. Enjoy a classic dictionary look and fast search features to explore Turkish in the digital age.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+🔗 **Live Project:** [https://kolay-turkce-sozluk.vercel.app/](https://kolay-turkce-sozluk.vercel.app/)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Features
+- Fast word search & autocomplete
+- Classic two-page dictionary view
+- Live TDK data: meanings, origins, examples, proverbs
+- Turkish locale-aware uppercasing
+- Responsive design for mobile & desktop
+- Automated Preview & Production deployments via GitHub Actions
 
-## Deploy on Vercel
+## Local Development
+```bash
+npm install
+npm run dev
+```
+View the app at [localhost:3000](http://localhost:3000)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deployment
+- Automated with Vercel using `.github/workflows/preview.yaml` and `.github/workflows/production.yaml`.
+- Required GitHub Secrets:
+  - `VERCEL_TOKEN`
+  - `VERCEL_ORG_ID`
+  - `VERCEL_PROJECT_ID`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+To obtain secrets:
+1. Run `vercel login` to authenticate.
+2. Run `vercel link` to link your project.
+3. Find orgId and projectId in `.vercel/project.json`.
+4. Add them as GitHub repository secrets.
+
+---
+
+MIT License © 2024

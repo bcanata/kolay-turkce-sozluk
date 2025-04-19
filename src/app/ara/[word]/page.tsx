@@ -1,10 +1,10 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
-import DefinitionCard from "../components/DefinitionCard";
-import SearchBox from "../components/SearchBox";
+import React, { useEffect, useState, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
+import DefinitionCard from "@/components/DefinitionCard";
 import Head from "next/head";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import SearchBox from "@/components/SearchBox";
 
 // TypeScript interfaces for API responses
 interface YazimResult {
@@ -41,7 +41,6 @@ interface Results {
   anlam: AnlamResult[];
 }
 
-// Circumflex mapping cache
 const circumflexMap: Record<string, string> = {};
 let circumflexLoaded = false;
 async function loadCircumflexMap() {
@@ -75,48 +74,27 @@ function ErrorBox({ message }: { message: string }) {
   );
 }
 
-export default function Home() {
+export default function SearchWordPage() {
+  const params = useParams();
   const router = useRouter();
-  const [loading] = useState(false);
-  const [error] = useState<string | null>(null);
-  const [results] = useState<Results | null>(null);
-  const [input, setInput] = useState("");
-  const [history, setHistory] = useState<string[]>([]);
+  const rawWord = typeof params.word === "string" ? params.word : Array.isArray(params.word) ? params.word[0] : "";
+  const word = decodeURIComponent(rawWord);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<Results | null>(null);
+  const [proverbs, setProverbs] = useState<ProverbResult[]>([]);
+  const [input, setInput] = useState(word);
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [proverbs] = useState<ProverbResult[]>([]);
   const [autocompleteList, setAutocompleteList] = useState<string[]>([]);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Theme state and logic
-  const [theme, setTheme] = React.useState<"light" | "dark">(() => {
-    if (typeof window !== "undefined") {
-      const cookie = document.cookie.match(/(?:^|; )theme=([^;]*)/);
-      if (cookie) return cookie[1] === "dark" ? "dark" : "light";
-      // Fallback to browser
-      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    }
-    return "light";
-  });
-
-  // Apply theme to <html> and save cookie
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const html = document.documentElement;
-    if (theme === "dark") {
-      html.classList.add("dark");
-    } else {
-      html.classList.remove("dark");
-    }
-    document.cookie = `theme=${theme}; path=/; max-age=31536000`;
-  }, [theme]);
-
   // Fetch circumflex map on mount
-  React.useEffect(() => {
+  useEffect(() => {
     loadCircumflexMap();
   }, []);
 
   // Fetch autocomplete list on mount
-  React.useEffect(() => {
+  useEffect(() => {
     fetch("https://sozluk.gov.tr/autocomplete.json")
       .then(res => res.json())
       .then((data: { madde: string }[]) => {
@@ -128,7 +106,7 @@ export default function Home() {
   }, []);
 
   // Filter suggestions locally as user types
-  React.useEffect(() => {
+  useEffect(() => {
     if (!input.trim()) {
       setSuggestions([]);
       return;
@@ -143,26 +121,42 @@ export default function Home() {
     }, 100);
   }, [input, autocompleteList]);
 
-  const handleSearch = (word: string) => {
-    if (!word.trim()) return;
-    router.push(`/ara/${encodeURIComponent(word.trim())}`);
-  };
-
-  const handleBack = () => {
-    setHistory((prev) => {
-      if (prev.length === 0) return prev;
-      const newHistory = [...prev];
-      const last = newHistory.pop();
-      if (last) {
-        handleSearch(last);
+  // Fetch results when word changes
+  useEffect(() => {
+    if (!word) return;
+    setInput(word);
+    setLoading(true);
+    setError(null);
+    setResults(null);
+    setSuggestions([]);
+    Promise.all([
+      fetch(`https://sozluk.gov.tr/yazim?ara=${encodeURIComponent(word)}`),
+      fetch(`https://sozluk.gov.tr/gts?ara=${encodeURIComponent(word)}`),
+      fetch(`https://sozluk.gov.tr/gtsAtasozDeyim?ara=${encodeURIComponent(word)}`),
+    ]).then(async ([yazimRes, anlamRes, proverbsRes]) => {
+      if (!yazimRes.ok || !anlamRes.ok) throw new Error("API hatası");
+      const yazim: YazimResult[] = await yazimRes.json();
+      const anlam: AnlamResult[] = await anlamRes.json();
+      let proverbsData: ProverbResult[] = [];
+      if (proverbsRes.ok) {
+        proverbsData = await proverbsRes.json();
       }
-      return newHistory;
+      setProverbs(Array.isArray(proverbsData) ? proverbsData : []);
+      if ((!Array.isArray(yazim) || yazim.length === 0) && (!Array.isArray(anlam) || anlam.length === 0)) {
+        setError("Kelime bulunamadı.");
+      } else {
+        setResults({ yazim, anlam });
+      }
+    }).catch(() => {
+      setError("Bir hata oluştu. Lütfen tekrar deneyin.");
+    }).finally(() => {
+      setLoading(false);
     });
-  };
+  }, [word]);
 
-  const handleSuggestionClick = (s: string) => {
-    setInput(s);
-    handleSearch(s);
+  const handleSearch = (searchWord: string) => {
+    if (!searchWord.trim()) return;
+    router.push(`/ara/${encodeURIComponent(searchWord.trim())}`);
   };
 
   // SEO helpers
@@ -173,7 +167,7 @@ export default function Home() {
     : "Kolay Türkçe Sözlük: Hızlı, güvenilir ve modern Türkçe sözlük. Kelime anlamları, kökenleri, örnekler ve daha fazlası.";
   const canonicalUrl = typeof window !== "undefined"
     ? window.location.href
-    : "https://kolayturkcesozluk.com/";
+    : `https://kolay-turkce-sozluk.vercel.app/ara/${encodeURIComponent(word)}`;
 
   return (
     <>
@@ -195,25 +189,6 @@ export default function Home() {
         <link rel="canonical" href={canonicalUrl} />
         <meta name="theme-color" content="#2563eb" />
       </Head>
-      {/* Theme toggle button */}
-      <button
-        className="fixed top-4 right-4 z-50 p-2 rounded-full bg-gray-100 dark:bg-gray-800 shadow hover:bg-gray-200 dark:hover:bg-gray-700 transition"
-        aria-label="Tema değiştir"
-        onClick={() => setTheme(t => (t === "dark" ? "light" : "dark"))}
-        type="button"
-      >
-        {theme === "dark" ? (
-          // Sun icon
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-yellow-400">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m0 13.5V21m8.25-9H21M3 12h2.25m12.02 6.02l1.59 1.59m-13.44-13.44l1.59 1.59m0 9.86l-1.59 1.59m13.44-13.44l-1.59 1.59M12 7.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9z" />
-          </svg>
-        ) : (
-          // Moon icon
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-gray-700 dark:text-gray-200">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12.79A9 9 0 1111.21 3a7 7 0 109.79 9.79z" />
-          </svg>
-        )}
-      </button>
       <div className="min-h-screen bg-background text-foreground flex flex-col items-center px-4 py-10">
         <h1 className="text-3xl font-bold mb-6 text-center" itemProp="name">Kolay Türkçe Sözlük</h1>
         <div className="w-full max-w-2xl lg:max-w-4xl flex items-center mb-8">
@@ -222,28 +197,17 @@ export default function Home() {
             loading={loading}
             input={input}
             setInput={setInput}
-            suggestions={suggestions.map(s => {
-              const cfx = getCircumflex(s);
-              return cfx !== s ? `${s} → ${cfx}` : s;
-            })}
-            onSuggestionClick={handleSuggestionClick}
+            suggestions={suggestions}
+            onSuggestionClick={(s: string) => {
+              setInput(s);
+              handleSearch(s);
+            }}
           />
-          {history.length > 0 && (
-            <button
-              className="ml-2 px-3 py-2 bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-700 transition"
-              onClick={handleBack}
-              type="button"
-              aria-label="Geri"
-            >
-              ← Geri
-            </button>
-          )}
         </div>
         {loading && <Spinner />}
         {error && <ErrorBox message={error} />}
         {/* Proverbs & Phrases search results */}
         {(() => {
-          // Collect all main result maddes
           const mainMaddes = new Set(
             (results?.anlam || []).map((entry: AnlamResult) => entry.madde?.toLowerCase().trim())
           );
@@ -282,7 +246,6 @@ export default function Home() {
                                     : o.ornek
                                 )}
                                 type={type}
-                                onReferenceClick={handleSearch}
                               />
                             );
                           });
@@ -300,7 +263,6 @@ export default function Home() {
           const anlamCount = results.anlam?.length || 0;
           const gridCols = anlamCount === 1 ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2";
           const maxW = anlamCount === 1 ? "max-w-3xl" : "max-w-4xl";
-          // Show both forms if available
           const searched = input.trim();
           const cfx = getCircumflex(searched);
           const plain = Object.keys(circumflexMap).find(k => circumflexMap[k] === searched);
@@ -369,7 +331,6 @@ export default function Home() {
                                       : o.ornek
                                   )}
                                   type={type}
-                                  onReferenceClick={handleSearch}
                                 />
                               );
                             });
@@ -436,4 +397,4 @@ export default function Home() {
       </div>
     </>
   );
-}
+} 
