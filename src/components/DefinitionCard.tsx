@@ -1,40 +1,18 @@
+import Link from "next/link";
 import React from "react";
+import { cleanMeaningText, cleanReference, replaceOffensiveTerms, stripReferenceNumber } from "@/lib/tdkText";
 
 interface DefinitionCardProps {
   definition: string;
   examples?: string[];
   type?: string;
-  onReferenceClick?: (ref: string) => void;
+  referenceHref?: (ref: string) => string;
 }
 
-function replaceTasak(text: string): string {
-  return text.replace(/\btaşak\b/giu, "er bezi");
-}
-
-function cleanMeaningText(text: string): string {
-  if (!text) return text;
-  text = text.replace(/►\s*taşaklı\b[.,;]?/giu, "");
-  text = text.replace(/,\s*taşaklı\b/giu, "");
-  text = text.replace(/taşaklı,\s*/giu, "");
-  text = text.replace(/►\s*,?\s*$/giu, "");
-  if (text.trim().toLocaleLowerCase("tr") === "taşaklı" || text.trim().toLocaleLowerCase("tr") === "► taşaklı") return "";
-  return text;
-}
-
-function stripReferenceNumber(text: string): string {
-  // Remove leading number(s) and space, e.g., '343 süre sonu' -> 'süre sonu'
-  return text.replace(/^\d+\s+/, "");
-}
-
-function cleanReference(ref: string): string {
-  // Remove leading '►' and whitespace
-  return ref.replace(/^►\s*/, "");
-}
-
-export default function DefinitionCard({ definition, examples, type, onReferenceClick }: DefinitionCardProps) {
+export default function DefinitionCard({ definition, examples, type, referenceHref }: DefinitionCardProps) {
   // Sanitize definition and examples
-  const sanitizedDef = cleanMeaningText(replaceTasak(definition));
-  const sanitizedExamples = examples?.map(e => replaceTasak(e)).filter(Boolean);
+  const sanitizedDef = cleanMeaningText(replaceOffensiveTerms(definition));
+  const sanitizedExamples = examples?.map(e => replaceOffensiveTerms(e)).filter(Boolean);
   if (!sanitizedDef) return null;
   // Remove leading reference number
   const defNoRef = stripReferenceNumber(sanitizedDef);
@@ -58,28 +36,26 @@ export default function DefinitionCard({ definition, examples, type, onReference
         {defNoRef && bakinizMatch ? (
           <span className="italic text-gray-700 dark:text-gray-200">
             bakınız{' '}
-            {onReferenceClick ? (
-              <button
-                type="button"
-                className="underline text-blue-700 hover:text-blue-900 dark:text-blue-300 dark:hover:text-blue-100 cursor-pointer"
-                onClick={() => onReferenceClick(cleanReference(bakinizMatch[1].trim()))}
+            {referenceHref ? (
+              <Link
+                href={referenceHref(cleanReference(bakinizMatch[1].trim()))}
+                className="underline text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100 cursor-pointer"
               >
                 {bakinizMatch[1].trim()}
-              </button>
+              </Link>
             ) : (
               <span className="underline">{bakinizMatch[1].trim()}</span>
             )}
           </span>
-        ) : defNoRef && isShortReference && onReferenceClick ? (
+        ) : defNoRef && isShortReference && referenceHref ? (
           <span className="italic text-gray-700 dark:text-gray-200">
             bakınız{' '}
-            <button
-              type="button"
-              className="underline text-blue-700 hover:text-blue-900 dark:text-blue-300 dark:hover:text-blue-100 cursor-pointer font-medium"
-              onClick={() => onReferenceClick(cleanReference(defNoRef.trim()))}
+            <Link
+              href={referenceHref(cleanReference(defNoRef.trim()))}
+              className="underline text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100 cursor-pointer font-medium"
             >
               {defNoRef.trim()}
-            </button>
+            </Link>
           </span>
         ) : defNoRef && (
           <span className="font-medium text-gray-800 dark:text-gray-100">{defNoRef}</span>

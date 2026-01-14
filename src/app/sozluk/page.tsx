@@ -1,6 +1,8 @@
 "use client";
-import React, { useEffect, useState, useRef, createContext } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { cleanMeaningText, replaceOffensiveTerms } from "@/lib/tdkText";
+import type { Anlam, Ornek } from "@/lib/tdk";
 
 const WORDS_PER_PAGE = 50;
 
@@ -10,50 +12,17 @@ function turkishSort(a: string, b: string) {
 
 function PartOfSpeech({ type }: { type?: string }) {
   if (!type) return null;
-  return <span className="italic text-gray-600 text-xs ml-2">{type}</span>;
+  return <span className="italic text-gray-600 dark:text-gray-400 text-xs ml-2">{type}</span>;
 }
 
 function Phonetic({ phonetic }: { phonetic?: string }) {
   if (!phonetic) return null;
-  return <span className="text-gray-500 text-xs ml-2">/{phonetic}/</span>;
+  return <span className="text-gray-500 dark:text-gray-400 text-xs ml-2">/{phonetic}/</span>;
 }
 
 function Origin({ origin }: { origin?: string }) {
   if (!origin) return null;
-  return <span className="text-xs text-gray-400 ml-2">({origin})</span>;
-}
-
-function replaceTasak(text: string): string {
-  // Replace 'taşak' as a whole word, case-insensitive, Turkish locale
-  return text.replace(/\btaşak\b/giu, "er bezi");
-}
-
-function cleanMeaningText(text: string): string {
-  // Remove '► taşaklı' or ', taşaklı' or 'taşaklı' as a synonym/related word
-  // Handles: '► taşaklı', '► foo, taşaklı', '► taşaklı, bar', etc.
-  if (!text) return text;
-  // Remove '► taşaklı' if it's the only one
-  text = text.replace(/►\s*taşaklı\b[.,;]?/giu, "");
-  // Remove ', taşaklı' or 'taşaklı,' in lists
-  text = text.replace(/,\s*taşaklı\b/giu, "");
-  text = text.replace(/taşaklı,\s*/giu, "");
-  // Remove 'taşaklı' if it's alone after '►'
-  text = text.replace(/►\s*,?\s*$/giu, "");
-  // Remove 'taşaklı' if it's the only word
-  if (text.trim().toLocaleLowerCase("tr") === "taşaklı") return "";
-  return text;
-}
-
-// TypeScript interfaces for dictionary data
-interface Ornek {
-  ornek: string;
-  yazar?: { tam_adi: string }[];
-}
-
-interface Anlam {
-  anlam: string;
-  ozelliklerListe?: { tam_adi: string }[];
-  orneklerListe?: Ornek[];
+  return <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">({origin})</span>;
 }
 
 interface DictionaryEntryData {
@@ -64,10 +33,9 @@ interface DictionaryEntryData {
 }
 
 function DictionaryEntry({ entry }: { entry: DictionaryEntryData | null }) {
-  const { /* setSearchWord, setHighlightedWord, words */ } = React.useContext(DictionaryBookContext) || {};
   if (!entry) return null;
   let madde = entry.madde;
-  madde = replaceTasak(madde);
+  madde = replaceOffensiveTerms(madde);
   const phonetic = entry.telaffuz;
   const origin = entry.lisan;
   // Filter out any meaning whose text is exactly 'taşaklı' or '► taşaklı' (case-insensitive, Turkish locale)
@@ -78,22 +46,25 @@ function DictionaryEntry({ entry }: { entry: DictionaryEntryData | null }) {
     })
     .map((anlam: Anlam) => ({
       ...anlam,
-      anlam: typeof anlam.anlam === 'string' ? cleanMeaningText(replaceTasak(anlam.anlam)) : anlam.anlam,
+      anlam:
+        typeof anlam.anlam === "string"
+          ? cleanMeaningText(replaceOffensiveTerms(anlam.anlam))
+          : anlam.anlam,
       orneklerListe: Array.isArray(anlam.orneklerListe)
         ? anlam.orneklerListe.map((o: Ornek) => ({
             ...o,
-            ornek: typeof o.ornek === 'string' ? replaceTasak(o.ornek) : o.ornek,
+            ornek: typeof o.ornek === "string" ? replaceOffensiveTerms(o.ornek) : o.ornek,
           }))
         : anlam.orneklerListe,
     }));
   return (
     <div className="mb-4">
       <div className="flex flex-wrap items-baseline gap-1 mb-1">
-        <span className="font-bold tracking-wide text-black text-base sm:text-lg uppercase">{madde?.toLocaleUpperCase("tr")}</span>
+        <span className="font-bold tracking-wide text-gray-900 dark:text-amber-100 text-base sm:text-lg uppercase">{madde?.toLocaleUpperCase("tr")}</span>
         <Phonetic phonetic={phonetic} />
         <Origin origin={origin} />
       </div>
-      <ol className="pl-4 list-decimal text-sm text-gray-800">
+      <ol className="pl-4 list-decimal text-sm text-gray-800 dark:text-gray-200">
         {meanings.map((anlam: Anlam, i: number) => {
           // Handle '343' Bakınız case
           if (typeof anlam.anlam === "string" && anlam.anlam.trim().startsWith("343")) {
@@ -101,15 +72,15 @@ function DictionaryEntry({ entry }: { entry: DictionaryEntryData | null }) {
             const ref = anlam.anlam.replace(/^343\s*/i, "").trim();
             return (
               <li key={i} className="mb-1">
-                <span className="italic text-gray-600">Bakınız:</span>{" "}
-                <span className="text-gray-900">{ref}</span>
+                <span className="italic text-gray-600 dark:text-gray-400">Bakınız:</span>{" "}
+                <span className="text-gray-900 dark:text-gray-100">{ref}</span>
                 <PartOfSpeech type={anlam.ozelliklerListe?.[0]?.tam_adi} />
               </li>
             );
           }
           return (
             <li key={i} className="mb-1">
-              <span className="font-medium text-gray-900">
+              <span className="font-medium text-gray-900 dark:text-gray-100">
                 {anlam.anlam}
               </span>
               <PartOfSpeech type={anlam.ozelliklerListe?.[0]?.tam_adi} />
@@ -117,10 +88,10 @@ function DictionaryEntry({ entry }: { entry: DictionaryEntryData | null }) {
               {anlam.orneklerListe && (
                 <ul className="mt-1 space-y-1">
                   {anlam.orneklerListe.map((o: Ornek, j: number) => (
-                    <li key={j} className="pl-4 border-l-2 border-gray-300 italic text-gray-600 text-xs">
+                    <li key={j} className="pl-4 border-l-2 border-gray-300 dark:border-gray-600 italic text-gray-600 dark:text-gray-400 text-xs">
                       &quot;{o.ornek}&quot;
                       {o.yazar && Array.isArray(o.yazar) && o.yazar[0]?.tam_adi && (
-                        <span className="ml-2 text-gray-400">— {o.yazar[0].tam_adi}</span>
+                        <span className="ml-2 text-gray-400 dark:text-gray-500">— {o.yazar[0].tam_adi}</span>
                       )}
                     </li>
                   ))}
@@ -134,9 +105,6 @@ function DictionaryEntry({ entry }: { entry: DictionaryEntryData | null }) {
   );
 }
 
-// Context to allow DictionaryEntry to access setSearchWord, setHighlightedWord, words
-const DictionaryBookContext = createContext<unknown>(null);
-
 export default function DictionaryBook() {
   const [words, setWords] = useState<string[]>([]);
   const [page, setPage] = useState(0); // page = 0 is the first spread
@@ -145,6 +113,11 @@ export default function DictionaryBook() {
   const fetchingRef = useRef<{ [word: string]: boolean }>({});
   const [searchWord, setSearchWord] = useState("");
   const [highlightedWord, setHighlightedWord] = useState<string | null>(null);
+  const defsRef = useRef(defs);
+
+  useEffect(() => {
+    defsRef.current = defs;
+  }, [defs]);
 
   useEffect(() => {
     fetch("https://sozluk.gov.tr/autocomplete.json")
@@ -173,157 +146,164 @@ export default function DictionaryBook() {
   useEffect(() => {
     const leftStart = page * WORDS_PER_PAGE * 2;
     const spreadWords = words.slice(leftStart, leftStart + WORDS_PER_PAGE * 2);
-    spreadWords.forEach(word => {
-      if (!word || defs[word] !== undefined || fetchingRef.current[word]) return;
+    spreadWords.forEach((word) => {
+      if (!word || defsRef.current[word] !== undefined || fetchingRef.current[word]) return;
       fetchingRef.current[word] = true;
       fetch(`https://sozluk.gov.tr/gts?ara=${encodeURIComponent(word)}`)
-        .then(res => res.json())
+        .then((res) => res.json())
         .then((data: DictionaryEntryData[]) => {
-          setDefs(prev => ({ ...prev, [word]: Array.isArray(data) && data.length > 0 ? data[0] : null }));
+          setDefs((prev) => ({
+            ...prev,
+            [word]: Array.isArray(data) && data.length > 0 ? data[0] : null,
+          }));
         })
         .finally(() => {
           fetchingRef.current[word] = false;
         });
     });
-  }, [page, words, defs]);
+  }, [page, words]);
 
   const totalPages = Math.ceil(words.length / (WORDS_PER_PAGE * 2));
   const leftStart = page * WORDS_PER_PAGE * 2;
-  const spreadWords = words.slice(leftStart, leftStart + WORDS_PER_PAGE * 2);
-  // Distribute loaded entries as evenly as possible
-  const loadedEntries = spreadWords.filter(w => defs[w] !== undefined);
-  const loadingEntries = spreadWords.filter(w => defs[w] === undefined);
+  const spreadWords = useMemo(
+    () => words.slice(leftStart, leftStart + WORDS_PER_PAGE * 2),
+    [leftStart, words]
+  );
+  const loadedEntries = spreadWords.filter((w) => defs[w] !== undefined);
+  const loadingEntries = spreadWords.filter((w) => defs[w] === undefined);
   const half = Math.ceil(loadedEntries.length / 2);
   const leftLoaded = loadedEntries.slice(0, half);
   const rightLoaded = loadedEntries.slice(half);
-  // Fill up to 50 per page with loading placeholders if needed
   const leftWords = [...leftLoaded, ...loadingEntries.slice(0, WORDS_PER_PAGE - leftLoaded.length)];
   const rightWords = [...rightLoaded, ...loadingEntries.slice(WORDS_PER_PAGE - leftLoaded.length)];
 
   return (
-    <DictionaryBookContext.Provider value={{ /* setSearchWord, setHighlightedWord, words */ }}>
-      <div className="min-h-screen bg-[#f8f5f0] flex flex-col items-center py-8 px-2">
-        <div className="w-full max-w-6xl flex items-center mb-4">
-          <Link href="/" className="inline-flex items-center p-2 rounded hover:bg-gray-100 transition group" aria-label="Ana sayfa">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6 text-gray-500 group-hover:text-blue-600">
-              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7A1 1 0 003 11h1v5a2 2 0 002 2h2a1 1 0 001-1v-3h2v3a1 1 0 001 1h2a2 2 0 002-2v-5h1a1 1 0 00.707-1.707l-7-7z" />
-            </svg>
-          </Link>
-        </div>
-        {loading ? (
-          <div className="text-lg text-gray-500 py-20">Yükleniyor...</div>
-        ) : (
-          <div className="w-full max-w-6xl flex flex-col items-center">
-            <div className="relative flex flex-col sm:flex-row gap-0 w-full justify-center">
-              {/* Left Page */}
-              <div className="bg-white shadow-lg border border-gray-300 rounded-l-lg flex-1 min-w-[220px] max-w-xl px-6 py-8 relative overflow-hidden font-serif text-sm leading-relaxed flex flex-col">
-                <div className="absolute left-0 top-0 h-full w-2 bg-gradient-to-r from-[#e2d6c2] to-transparent" />
-                <div className="space-y-4 flex-1">
-                  {leftWords.map((w, i) =>
-                    defs[w] === undefined ? (
-                      <div key={i} className="animate-pulse h-8 bg-gray-100 rounded w-3/4 mb-2" />
-                    ) : defs[w] === null ? (
-                      <div key={i} className="text-gray-400 italic mb-2">{w}</div>
-                    ) : (
-                      <div
-                        key={i}
-                        id={"sozluk-word-" + w}
-                        className={highlightedWord === w ? "ring-2 ring-yellow-400 rounded" : ""}
-                      >
-                        <DictionaryEntry entry={defs[w]} />
-                      </div>
-                    )
-                  )}
-                </div>
-                <div className="absolute bottom-2 left-6 text-xs text-gray-400 font-serif select-none">{page * 2 + 1}</div>
+    <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-8 px-4 py-10">
+      <div className="w-full">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white/80 px-3 py-1 text-xs font-semibold text-amber-800 shadow-sm hover:bg-amber-50 dark:border-amber-700 dark:bg-gray-900/80 dark:text-amber-200"
+          aria-label="Ana sayfa"
+        >
+          ← Ana sayfa
+        </Link>
+      </div>
+      {loading ? (
+        <div className="text-lg text-gray-500 dark:text-gray-400 py-20">Yükleniyor...</div>
+      ) : (
+        <div className="w-full flex flex-col items-center">
+          <div className="relative flex flex-col sm:flex-row gap-0 w-full justify-center">
+            <div className="bg-white/90 shadow-lg border border-amber-200 rounded-l-2xl flex-1 min-w-[220px] max-w-xl px-6 py-8 relative overflow-hidden font-serif text-sm leading-relaxed flex flex-col dark:border-amber-900 dark:bg-gray-950/70">
+              <div className="absolute left-0 top-0 h-full w-2 bg-gradient-to-r from-amber-200 to-transparent dark:from-amber-900" />
+              <div className="space-y-4 flex-1">
+                {leftWords.map((w, i) =>
+                  defs[w] === undefined ? (
+                    <div key={i} className="animate-pulse h-8 bg-amber-50 dark:bg-amber-900/30 rounded w-3/4 mb-2" />
+                  ) : defs[w] === null ? (
+                    <div key={i} className="text-gray-400 dark:text-gray-600 italic mb-2">{w}</div>
+                  ) : (
+                    <div
+                      key={i}
+                      id={"sozluk-word-" + w}
+                      className={highlightedWord === w ? "ring-2 ring-amber-400 rounded" : ""}
+                    >
+                      <DictionaryEntry entry={defs[w]} />
+                    </div>
+                  )
+                )}
               </div>
-              {/* Gutter */}
-              <div className="hidden sm:flex flex-col items-center justify-center w-6 relative">
-                <div className="h-5/6 w-0.5 bg-gray-200 rounded-full" />
-              </div>
-              {/* Right Page (hide on mobile) */}
-              <div className="hidden sm:flex bg-white shadow-lg border border-gray-300 rounded-r-lg flex-1 min-w-[220px] max-w-xl px-6 py-8 relative overflow-hidden font-serif text-sm leading-relaxed flex-col">
-                <div className="space-y-4 flex-1">
-                  {rightWords.map((w, i) =>
-                    defs[w] === undefined ? (
-                      <div key={i} className="animate-pulse h-8 bg-gray-100 rounded w-3/4 mb-2" />
-                    ) : defs[w] === null ? (
-                      <div key={i} className="text-gray-400 italic mb-2">{w}</div>
-                    ) : (
-                      <DictionaryEntry key={i} entry={defs[w]} />
-                    )
-                  )}
-                </div>
-                <div className="absolute bottom-2 right-6 text-xs text-gray-400 font-serif select-none">{page * 2 + 2}</div>
+              <div className="absolute bottom-2 left-6 text-xs text-gray-400 dark:text-gray-600 font-serif select-none">
+                {page * 2 + 1}
               </div>
             </div>
-            {/* Navigation */}
-            <div className="flex gap-4 mt-8 items-center">
-              <button
-                className="px-4 py-2 rounded bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 disabled:opacity-50"
-                onClick={() => setPage(p => Math.max(0, p - 1))}
-                disabled={page === 0}
-              >
-                ← Önceki
-              </button>
-              <form
-                onSubmit={e => {
-                  e.preventDefault();
-                  if (!searchWord.trim()) return;
-                  // Find word index (case-insensitive, Turkish locale)
-                  const searchVal = searchWord.trim().toLocaleLowerCase("tr");
-                  if (searchVal === "taşaklı") {
-                    return;
-                  }
-                  const idx = words.findIndex(w => w.toLocaleLowerCase("tr") === searchVal);
-                  if (idx === -1) {
-                    return;
-                  }
-                  const newPage = Math.floor(idx / (WORDS_PER_PAGE * 2));
-                  setPage(newPage);
-                  setHighlightedWord(words[idx]);
-                  setTimeout(() => {
-                    const el = document.getElementById("sozluk-word-" + words[idx]);
-                    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-                  }, 300);
-                }}
-                className="flex items-center gap-2"
-              >
-                <input
-                  type="text"
-                  value={searchWord}
-                  onChange={e => setSearchWord(e.target.value)}
-                  className="w-32 px-2 py-1 border border-gray-300 rounded text-center font-serif text-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                />
-                <button
-                  type="submit"
-                  className="px-3 py-1 rounded bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300"
-                >
-                  Ara
-                </button>
-              </form>
-              <button
-                className="px-4 py-2 rounded bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 disabled:opacity-50"
-                onClick={() => {
-                  setPage(p => {
-                    const next = Math.min(totalPages - 1, p + 1);
-                    // Only scroll to top on mobile (sm: hidden right page)
-                    if (typeof window !== "undefined" && window.innerWidth < 640) {
-                      setTimeout(() => {
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }, 100);
-                    }
-                    return next;
-                  });
-                }}
-                disabled={page >= totalPages - 1}
-              >
-                Sonraki →
-              </button>
+            <div className="hidden sm:flex flex-col items-center justify-center w-6 relative">
+              <div className="h-5/6 w-0.5 bg-amber-100 rounded-full dark:bg-amber-900" />
+            </div>
+            <div className="hidden sm:flex bg-white/90 shadow-lg border border-amber-200 rounded-r-2xl flex-1 min-w-[220px] max-w-xl px-6 py-8 relative overflow-hidden font-serif text-sm leading-relaxed flex-col dark:border-amber-900 dark:bg-gray-950/70">
+              <div className="space-y-4 flex-1">
+                {rightWords.map((w, i) =>
+                  defs[w] === undefined ? (
+                    <div key={i} className="animate-pulse h-8 bg-amber-50 rounded w-3/4 mb-2 dark:bg-amber-900/30" />
+                  ) : defs[w] === null ? (
+                    <div key={i} className="text-gray-400 dark:text-gray-600 italic mb-2">{w}</div>
+                  ) : (
+                    <DictionaryEntry key={i} entry={defs[w]} />
+                  )
+                )}
+              </div>
+              <div className="absolute bottom-2 right-6 text-xs text-gray-400 dark:text-gray-600 font-serif select-none">
+                {page * 2 + 2}
+              </div>
             </div>
           </div>
-        )}
-      </div>
-    </DictionaryBookContext.Provider>
+          <div className="flex flex-wrap gap-4 mt-8 items-center justify-center">
+            <button
+              className="px-4 py-2 rounded-full bg-amber-100 text-amber-800 font-semibold hover:bg-amber-200 disabled:opacity-50 dark:bg-amber-900/60 dark:text-amber-200 dark:hover:bg-amber-800"
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={page === 0}
+            >
+              ← Önceki
+            </button>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!searchWord.trim()) return;
+                const searchVal = searchWord.trim().toLocaleLowerCase("tr");
+                if (searchVal === "taşaklı") {
+                  return;
+                }
+                const idx = words.findIndex((w) => w.toLocaleLowerCase("tr") === searchVal);
+                if (idx === -1) {
+                  return;
+                }
+                const newPage = Math.floor(idx / (WORDS_PER_PAGE * 2));
+                setPage(newPage);
+                setHighlightedWord(words[idx]);
+                setTimeout(() => {
+                  const el = document.getElementById("sozluk-word-" + words[idx]);
+                  if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                }, 300);
+              }}
+              className="flex items-center gap-2"
+            >
+              <label className="sr-only" htmlFor="sozluk-search">
+                Sözlük içinde ara
+              </label>
+              <input
+                id="sozluk-search"
+                type="text"
+                value={searchWord}
+                onChange={(e) => setSearchWord(e.target.value)}
+                placeholder="Kelime bul"
+                className="w-40 rounded-full border border-amber-200 bg-white/90 px-3 py-2 text-center font-serif text-base text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300 dark:border-amber-700 dark:bg-gray-900 dark:text-amber-100"
+              />
+              <button
+                type="submit"
+                className="px-3 py-2 rounded-full bg-amber-600 text-white font-semibold hover:bg-amber-700"
+              >
+                Ara
+              </button>
+            </form>
+            <button
+              className="px-4 py-2 rounded-full bg-amber-100 text-amber-800 font-semibold hover:bg-amber-200 disabled:opacity-50 dark:bg-amber-900/60 dark:text-amber-200 dark:hover:bg-amber-800"
+              onClick={() => {
+                setPage((p) => {
+                  const next = Math.min(totalPages - 1, p + 1);
+                  if (typeof window !== "undefined" && window.innerWidth < 640) {
+                    setTimeout(() => {
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }, 100);
+                  }
+                  return next;
+                });
+              }}
+              disabled={page >= totalPages - 1}
+            >
+              Sonraki →
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
-} 
+}
