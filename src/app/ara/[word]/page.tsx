@@ -16,9 +16,10 @@ function decodeParam(value: string | string[] | undefined) {
 export async function generateMetadata({
   params,
 }: {
-  params: { word: string };
+  params: Promise<{ word: string }>;
 }): Promise<Metadata> {
-  const searched = decodeParam(params.word);
+  const { word } = await params;
+  const searched = decodeParam(word);
   const title = searched ? `Kolay Türkçe Sözlük – ${searched}` : "Kolay Türkçe Sözlük";
   const description = searched
     ? `${searched} kelimesinin anlamı, kökeni, örnekleri ve daha fazlası.`
@@ -43,9 +44,10 @@ export async function generateMetadata({
 export default async function SearchWordPage({
   params,
 }: {
-  params: { word: string };
+  params: Promise<{ word: string }>;
 }) {
-  const searched = decodeParam(params.word).trim();
+  const { word } = await params;
+  const searched = decodeParam(word).trim();
   const results = searched ? await getWordResults(searched) : null;
 
   const empty =
